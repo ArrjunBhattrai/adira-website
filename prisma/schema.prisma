@@ -28,7 +28,8 @@ enum PaymentProvider {
 }
 
 model Admin {
-  email     String   @id
+  id        String   @id @default(cuid())
+  email     String   @unique
   name      String
   password  String
   createdAt DateTime @default(now())
@@ -38,14 +39,15 @@ model Admin {
 }
 
 model User {
-  email          String           @id
+  id             String           @id @default(cuid())
+  email          String           @unique
   name           String
   password       String
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
   sessions       Session[]
-
+  accounts       Account[]
   orders         Order[]
   cart           Cart?
   shippingAddrs  ShippingAddress[]
@@ -58,11 +60,30 @@ model User {
 model Session {
   id           String    @id @default(cuid())
   sessionToken String    @unique
-  userEmail    String
+  userId       String
   expires      DateTime
-  user         User      @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("session")
+}
+
+model Account {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("account")
 }
 
 model VerificationToken {
@@ -76,45 +97,45 @@ model VerificationToken {
 
 model ShippingAddress {
   id        Int     @id @default(autoincrement())
-  userEmail String
+  userId    String
   address   String
   city      String
   state     String
   country   String
   pinCode   String
-  user      User    @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("shipping_address")
 }
 
 model SearchHistory {
   id         Int      @id @default(autoincrement())
-  userEmail  String
+  userId     String
   query      String
   createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("search_history")
 }
 
 model Product {
-  id          Int           @id @default(autoincrement())
-  title       String
-  description String
-  price       Decimal
-  inStock     Int
-  materialId  Int
-  patternId   Int
-  themeId     Int
-  material    Material      @relation(fields: [materialId], references: [id])
-  pattern     Pattern       @relation(fields: [patternId], references: [id])
-  theme       Theme         @relation(fields: [themeId], references: [id])
-  images      ProductImage[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  id           Int           @id @default(autoincrement())
+  title        String
+  description  String
+  price        Decimal
+  inStock      Int
+  materialId   Int
+  patternId    Int
+  themeId      Int
+  material     Material      @relation(fields: [materialId], references: [id])
+  pattern      Pattern       @relation(fields: [patternId], references: [id])
+  theme        Theme         @relation(fields: [themeId], references: [id])
+  images       ProductImage[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
   productViews ProductView[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@map("product")
 }
@@ -154,21 +175,21 @@ model ProductImage {
 
 model ProductView {
   id         Int      @id @default(autoincrement())
-  userEmail  String
+  userId     String
   productId  Int
   frequency  Int      @default(1)
   lastViewed DateTime @default(now())
-  user       User     @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([userEmail, productId])
+  @@unique([userId, productId])
   @@map("product_view")
 }
 
 model Cart {
   id        Int        @id @default(autoincrement())
-  userEmail String     @unique
-  user      User       @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cartItems CartItem[]
 
   @@map("cart")
@@ -188,11 +209,11 @@ model CartItem {
 
 model Order {
   id         Int         @id @default(autoincrement())
-  userEmail  String
+  userId     String
   total      Decimal
   status     OrderStatus @default(PENDING)
   createdAt  DateTime    @default(now())
-  user       User        @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   items      OrderItem[]
   payment    Payment?
 
