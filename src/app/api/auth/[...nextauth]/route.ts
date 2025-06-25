@@ -2,12 +2,13 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs"; // Use bcryptjs instead of bcrypt
+import bcrypt from "bcryptjs"; 
+import type { NextAuthOptions } from "next-auth";
 
-export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma) as any,
   session: {
-    strategy: "database" as const,
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   providers: [
@@ -20,8 +21,14 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
+         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+          },
         });
 
         if (!user || !user.password) return null;
@@ -30,19 +37,34 @@ export const authOptions = {
         if (!isValid) return null;
 
         return {
-          id: user.email,
+          id: user.id,
           name: user.name,
           email: user.email,
         };
       },
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
   },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id; // pass user.id into JWT
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token?.id) {
+        session.user.id = token.id as string;
+      }
+      return session;
+    },
+  },
+
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
-// 👇 App Router compatible handler export
+
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
